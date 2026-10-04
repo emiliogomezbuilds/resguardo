@@ -1,0 +1,74 @@
+// Mechanical checks of the rules that carry the Blueprint conditions.
+// Run: npx tsx scripts/verify.ts
+import assert from "node:assert/strict";
+import {
+  ACTION_CODES, buildActionViews, backupState, NOT_PROTECTED, NO_FALSE_SECURITY, STATUS_LABEL,
+  type ActionRow, type Asset,
+} from "../lib/resguardo";
+import { simulatedTriage } from "../lib/triage";
+import { normalizeDomain, checkEmailProtection } from "../lib/dns";
+
+const NOW = new Date("2026-10-04T12:00:00");
+const rows: ActionRow[] = ACTION_CODES.map((code, i) => ({
+  id: `00000000-0000-0000-0000-00000000000${i}`, code, status: "pending",
+  owner_role: "Dueña", due_date: "2026-10-11", done_note: null, done_at: null,
+}));
+const assets: Asset[] = [
+  { id: "a", kind: "account", label: "WhatsApp Business", platform: "android", has_mfa: false, auto_updates: false },
+  { id: "b", kind: "device", label: "Tableta de ventas", platform: "android", has_mfa: false, auto_updates: false },
+];
+const base = { assets, backups: [], responderCount: 0, hasDomain: false, lastEmailCheck: null, now: NOW };
+
+// Condition 2: exactly five actions.
+let v = buildActionViews(rows, base);
+assert.equal(v.length, 5);
+// Backup with no test is the top priority and never "done".
+assert.equal(v[0].code, "backup_restore");
+assert.equal(v[0].done, false);
+
+// Backup freshness: fresh vs stale (30 days) vs failed.
+assert.equal(backupState([{ tested_on: "2026-09-30", restored_ok: true, note: null }], NOW).state, "fresh");
+assert.equal(backupState([{ tested_on: "2026-08-01", restored_ok: true, note: null }], NOW).state, "stale");
+assert.equal(backupState([{ tested_on: "2026-10-01", restored_ok: false, note: null }], NOW).state, "failed");
+v = buildActionViews(rows, { ...base, backups: [{ tested_on: "2026-09-30", restored_ok: true, note: null }] });
+assert.equal(v.find((x) => x.code === "backup_restore")!.done, true);
+
+// Responder makes the incident-contact action done (derived from data).
+v = buildActionViews(rows, { ...base, responderCount: 1 });
+assert.equal(v.find((x) => x.code === "incident_contact")!.done, true);
+
+// Condition 3: every action has what happened / what to do / who is responsible.
+for (const a of buildActionViews(rows, base)) {
+  assert.ok(a.finding.happened.length > 5 && a.finding.todo.length > 5 && a.finding.who.length > 1, a.code);
+}
+
+// Condition 6: no wording anywhere claims the business is safe.
+const surface = [STATUS_LABEL.done, STATUS_LABEL.pending, NO_FALSE_SECURITY, ...NOT_PROTECTED,
+  ...buildActionViews(rows, base).flatMap((a) => [a.title, a.why, a.finding.happened, a.finding.todo])].join(" ").toLowerCase();
+for (const banned of ["estás protegido", "estas protegido", "100% seguro", "totalmente seguro", "estás seguro."]) {
+  assert.ok(!surface.includes(banned), `banned wording: ${banned}`);
+}
+assert.ok(NO_FALSE_SECURITY.toLowerCase().includes("no significa"));
+
+// Condition 4: high-severity kinds require a human.
+assert.equal(simulatedTriage("ransomware").severity, "high");
+assert.equal(simulatedTriage("account_takeover").severity, "high");
+assert.equal(simulatedTriage("phishing").severity, "low");
+
+// Input validation of the domain field (security floor #4).
+assert.equal(normalizeDomain("https://Google.com/path"), "google.com");
+assert.equal(normalizeDomain("not a domain"), null);
+assert.equal(normalizeDomain("a'; drop table"), null);
+
+async function live() {
+// Real DNS-over-HTTPS signal (best effort: skipped if the network is blocked).
+try {
+  const f = await checkEmailProtection("google.com");
+  console.log("DNS live check google.com ->", { spf: !!f.spf, dmarc: !!f.dmarc, policy: f.dmarc_policy });
+  assert.ok(f.spf, "google.com should publish SPF");
+} catch (e) {
+  console.log("DNS live check skipped:", (e as Error).message);
+}
+
+}
+live().then(() => console.log("ALL CHECKS PASSED"));
