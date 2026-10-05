@@ -8,6 +8,7 @@ import {
 import { simulatedTriage } from "../lib/triage";
 import { isoDate, todayMx } from "../lib/validate";
 import { formatMx } from "../lib/format";
+import { incidentStatusLabel, isOpenIncident, severityLabel, sortIncidents } from "../lib/incidents";
 import { normalizeDomain, checkEmailProtection, emailAdvice, freeMailProvider } from "../lib/dns";
 
 const NOW = new Date("2026-10-04T12:00:00");
@@ -102,6 +103,21 @@ for (const f of [
   assert.ok(!/^(SPF|DMARC)/.test(a.happened), "finding must not open with an acronym");
   assert.ok(a.happened.length > 30);
 }
+
+// Cases list: waiting-for-a-person first, closed last, newest first inside each group.
+const mk = (id: string, status: "open" | "awaiting_human" | "closed", at: string) => ({
+  id, kind: "phishing" as const, severity: "low" as const, status, created_at: at, closed_at: null,
+});
+const sorted = sortIncidents([
+  mk("closed-new", "closed", "2026-10-04T10:00:00Z"),
+  mk("open-old", "open", "2026-10-01T10:00:00Z"),
+  mk("wait", "awaiting_human", "2026-09-01T10:00:00Z"),
+  mk("open-new", "open", "2026-10-03T10:00:00Z"),
+]);
+assert.deepEqual(sorted.map((x) => x.id), ["wait", "open-new", "open-old", "closed-new"]);
+assert.equal(sorted.filter(isOpenIncident).length, 3);
+assert.equal(incidentStatusLabel("awaiting_human"), "Esperando a una persona");
+assert.equal(severityLabel("high"), "alta");
 
 // Regression: timestamps are shown in Mexico City time, never UTC.
 const shown = formatMx("2026-10-05T02:47:16Z");

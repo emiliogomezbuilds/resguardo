@@ -25,6 +25,7 @@ export function Shell({
           <Link className="underline" href="/dashboard">Inicio</Link>
           <Link className="underline" href="/backup">Respaldo</Link>
           <Link className="underline" href="/email-check">Correo</Link>
+          <Link className="underline" href="/incidents">Casos</Link>
           <Link className="underline" href="/contacts">Contactos</Link>
           <form action="/logout" method="post">
             <Button variant="outline" size="sm" type="submit">Salir</Button>

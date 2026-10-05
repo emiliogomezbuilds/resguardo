@@ -11,6 +11,14 @@ import {
   type EmailCheck,
 } from "@/lib/resguardo";
 import { freeMailProvider } from "@/lib/dns";
+import { KIND_LABEL } from "@/lib/triage";
+import {
+  incidentStatusLabel,
+  isOpenIncident,
+  severityLabel,
+  sortIncidents,
+  type IncidentRow,
+} from "@/lib/incidents";
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +32,7 @@ export default async function Dashboard({
   const { supabase, business } = await requireOwner();
   const { error } = await searchParams;
 
-  const [{ data: rows }, { data: assets }, { data: backups }, { data: checks }, { count }] =
+  const [{ data: rows }, { data: assets }, { data: backups }, { data: checks }, { count }, { data: incs }] =
     await Promise.all([
       supabase.from("actions").select("*").eq("business_id", business.id),
       supabase.from("assets").select("*").eq("business_id", business.id),
@@ -36,7 +44,12 @@ export default async function Dashboard({
         .order("checked_at", { ascending: false })
         .limit(1),
       supabase.from("responders").select("id", { count: "exact", head: true }).eq("business_id", business.id),
+      supabase
+        .from("incidents")
+        .select("id, kind, severity, status, created_at, closed_at")
+        .eq("business_id", business.id),
     ]);
+  const openCases = sortIncidents((incs ?? []) as IncidentRow[]).filter(isOpenIncident);
 
   const views = buildActionViews((rows ?? []) as ActionRow[], {
     assets: (assets ?? []) as Asset[],
@@ -131,6 +144,28 @@ export default async function Dashboard({
           <Button asChild variant="destructive" size="lg">
             <Link href="/incidents/new">Tengo un problema</Link>
           </Button>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Tus casos</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              {openCases.length === 0 ? (
+                <p className="text-muted-foreground">Ningún caso abierto.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {openCases.slice(0, 3).map((c) => (
+                    <li key={c.id}>
+                      <Link className="underline" href={`/incidents/${c.id}`}>{KIND_LABEL[c.kind]}</Link>
+                      <span className="block text-xs text-muted-foreground">
+                        {incidentStatusLabel(c.status)} · gravedad {severityLabel(c.severity)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Link className="mt-3 inline-block text-xs underline" href="/incidents">Ver todos los casos</Link>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Lo que Resguardo NO protege</CardTitle>
