@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireOwner } from "@/lib/session";
-import { closeIncident, raiseSeverity } from "@/app/actions";
+import { addResponder, closeIncident, raiseSeverity } from "@/app/actions";
 import { KIND_LABEL, simulatedTriage, type IncidentKind } from "@/lib/triage";
 import { formatMx } from "@/lib/format";
 import { Shell } from "@/components/shell";
@@ -55,7 +55,19 @@ export default async function IncidentPage({
         <CardHeader className="pb-2"><CardTitle className="text-base">Quién es responsable</CardTitle></CardHeader>
         <CardContent className="text-sm">
           {(responders ?? []).length === 0 ? (
-            <p className="text-red-800">No tienes contactos anotados. Agrégalos en <a className="underline" href="/contacts">Contactos</a> y llama a alguien de confianza ahora.</p>
+            <div className="flex flex-col gap-3">
+              <p className="text-red-800">Todavía no tienes a nadie anotado. Anota ahora a una persona de confianza (familiar, soporte de tu banco o quien te ayuda con la computadora) y llámale.</p>
+              {error === "contact" && <p className="rounded-md bg-red-50 p-2 text-red-800">Revisa los tres campos: nombre, quién es y su teléfono o correo.</p>}
+              {!closed && (
+                <form action={addResponder} className="grid gap-2 sm:grid-cols-3">
+                  <input type="hidden" name="return_incident" value={inc.id} />
+                  <input name="name" required minLength={2} maxLength={60} placeholder="Nombre (ej. Ana)" className="h-10 rounded-md border border-input px-3" />
+                  <input name="role" required minLength={2} maxLength={60} placeholder="Quién es (ej. sobrina)" className="h-10 rounded-md border border-input px-3" />
+                  <input name="contact" required minLength={3} maxLength={80} placeholder="Teléfono o correo" className="h-10 rounded-md border border-input px-3" />
+                  <div className="sm:col-span-3"><Button type="submit" variant="outline" size="sm">Anotar a esta persona</Button></div>
+                </form>
+              )}
+            </div>
           ) : (
             <ul className="space-y-1">
               {(responders ?? []).map((r) => (<li key={r.id}><strong>{r.name}</strong> · {r.role} · {r.contact}</li>))}
@@ -86,8 +98,14 @@ export default async function IncidentPage({
               <input type="hidden" name="id" value={inc.id} />
               {high && (
                 <label className="font-medium">
-                  Persona que lo confirmó (obligatorio en gravedad alta)
-                  <input name="confirmed_by" required minLength={2} maxLength={60} className="mt-1 h-10 w-full rounded-md border border-input px-3" placeholder="Nombre de la persona" />
+                  Persona que lo revisó contigo (obligatorio en gravedad alta)
+                  <input name="confirmed_by" required minLength={2} maxLength={60} list="responder-names" className="mt-1 h-10 w-full rounded-md border border-input px-3" placeholder="Ej. Ana, o el soporte de mi banco" />
+                  <datalist id="responder-names">
+                    {(responders ?? []).map((r) => (<option key={r.id} value={r.name} />))}
+                  </datalist>
+                  <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                    Escribe el nombre de la persona con quien hablaste y que vio el problema. Si todavía no hablaste con nadie, no cierres el caso: llama primero.
+                  </span>
                 </label>
               )}
               <label className="font-medium">

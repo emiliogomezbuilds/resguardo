@@ -135,6 +135,8 @@ type Ctx = {
   backups: BackupTest[];
   responderCount: number;
   hasDomain: boolean;
+  /** Name of the free-mail provider (Google, Microsoft...) when the "domain" is e.g. gmail.com. */
+  freeMailProvider?: string | null;
   lastEmailCheck: EmailCheck | null;
   now?: Date;
 };
@@ -199,7 +201,15 @@ export function buildActionViews(rows: ActionRow[], ctx: Ctx): ActionView[] {
       const c = ctx.lastEmailCheck;
       const weak = !c || !c.spf || !c.dmarc || c.dmarc_policy === "none";
       priority = done ? 13 : ctx.hasDomain ? (weak ? 70 : 20) : 40;
-      finding = {
+      if (ctx.freeMailProvider) {
+        // Persona test: telling a Gmail user to "ask whoever manages your domain" is nonsense.
+        finding = {
+          happened: `Tu correo es de ${ctx.freeMailProvider}, que ya administra esas reglas por ti.`,
+          todo: "No hay nada que pedir. Activa la verificación en 2 pasos (acción 2) y marca esta acción como hecha con una nota.",
+          who: row.owner_role,
+        };
+        priority = done ? 13 : 40;
+      } else finding = {
         happened: !ctx.hasDomain
           ? "No registraste un dominio propio, así que no hay nada público que revisar."
           : !c

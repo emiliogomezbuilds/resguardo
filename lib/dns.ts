@@ -30,40 +30,76 @@ export type EmailFinding = {
   dmarc_policy: "none" | "quarantine" | "reject" | null;
 };
 
-// Plain-language finding (happened / todo) derived ONLY from what the lookup found.
-// Bug found in the live mechanical test: the "todo" text used to ask for SPF and DMARC
-// even when SPF was already published, which would confuse a non-technical owner.
-export function emailAdvice(f: Pick<EmailFinding, "spf" | "dmarc" | "dmarc_policy">): {
-  happened: string;
-  todo: string;
-} {
+// Free-mail providers: the owner does NOT administer their DNS, so asking her to "ask whoever
+// manages your domain" is nonsense. Persona test (Lupita, Gmail): the worst trust-breaker.
+const FREE_MAIL: Record<string, string> = {
+  "gmail.com": "Google",
+  "googlemail.com": "Google",
+  "outlook.com": "Microsoft",
+  "hotmail.com": "Microsoft",
+  "live.com": "Microsoft",
+  "msn.com": "Microsoft",
+  "yahoo.com": "Yahoo",
+  "yahoo.com.mx": "Yahoo",
+  "icloud.com": "Apple",
+  "me.com": "Apple",
+  "proton.me": "Proton",
+  "protonmail.com": "Proton",
+  "aol.com": "AOL",
+};
+
+export function freeMailProvider(domain: string | null | undefined): string | null {
+  if (!domain) return null;
+  return FREE_MAIL[domain.trim().toLowerCase()] ?? null;
+}
+
+// Plain-language finding derived ONLY from what the lookup found (and who runs the domain).
+// Acronyms stay in parentheses for the technical reader; the sentence works without them.
+export function emailAdvice(
+  f: Pick<EmailFinding, "spf" | "dmarc" | "dmarc_policy">,
+  domain?: string | null,
+): { happened: string; todo: string; who: string } {
+  const provider = freeMailProvider(domain);
+  if (provider) {
+    return {
+      happened: `Tu correo es de ${provider}. Ellos administran estas reglas, no tú.`,
+      todo: "No hay nada que pedir aquí. Lo que sí ayuda es activar la verificación en 2 pasos en esa cuenta (acción 2).",
+      who: provider,
+    };
+  }
+  const who = "Quien administra tu dominio (anótalo en Contactos)";
   if (!f.spf && !f.dmarc) {
     return {
-      happened: "Tu dominio no publica reglas contra suplantación.",
-      todo: "Pide a quien administra tu dominio que publique SPF y DMARC.",
+      happened: "Tu dominio no tiene reglas que impidan que otros manden correos con el nombre de tu negocio.",
+      todo: "Pide a quien administra tu dominio que publique SPF y DMARC (esas reglas).",
+      who,
     };
   }
   if (!f.spf) {
     return {
-      happened: "Falta SPF: cualquiera podría enviar correos que parecen tuyos.",
+      happened: "Falta la lista de quién puede mandar correos por tu negocio (SPF).",
       todo: "Pide a quien administra tu dominio que publique SPF.",
+      who,
     };
   }
   if (!f.dmarc) {
     return {
-      happened: "SPF está publicado, pero falta DMARC.",
+      happened: "Tienes la lista de remitentes (SPF), pero falta decirle al mundo qué hacer con los correos falsos (DMARC).",
       todo: "Pide a quien administra tu dominio que publique DMARC.",
+      who,
     };
   }
   if (f.dmarc_policy === "none") {
     return {
-      happened: "DMARC solo observa, no bloquea correos falsos.",
-      todo: "Pide a quien administra tu dominio que suba DMARC a quarantine o reject.",
+      happened: "Tu dominio avisa quién puede mandar correos por ti, pero no frena a los falsos: solo observa.",
+      todo: "Pide a quien administra tu dominio que suba DMARC a quarantine o reject (que los falsos se aparten o se rechacen).",
+      who,
     };
   }
   return {
     happened: "Hay reglas publicadas contra suplantación (SPF y DMARC).",
     todo: "No hay nada nuevo que pedir hoy. Vuelve a revisar en unos meses.",
+    who,
   };
 }
 

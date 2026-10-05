@@ -8,7 +8,7 @@ import {
 import { simulatedTriage } from "../lib/triage";
 import { isoDate, todayMx } from "../lib/validate";
 import { formatMx } from "../lib/format";
-import { normalizeDomain, checkEmailProtection, emailAdvice } from "../lib/dns";
+import { normalizeDomain, checkEmailProtection, emailAdvice, freeMailProvider } from "../lib/dns";
 
 const NOW = new Date("2026-10-04T12:00:00");
 const rows: ActionRow[] = ACTION_CODES.map((code, i) => ({
@@ -76,6 +76,32 @@ assert.equal(isoDate("2026-10-04", EVENING_MX), "2026-10-04");
 assert.equal(isoDate("2026-10-05", EVENING_MX), null, "tomorrow (owner's local date) must be rejected");
 assert.equal(isoDate("2026-02-31", EVENING_MX), null, "impossible calendar date must be rejected");
 assert.equal(isoDate("nope", EVENING_MX), null);
+
+// Persona-test fix 1: Gmail users are never told to "ask whoever administers your domain".
+assert.equal(freeMailProvider("gmail.com"), "Google");
+assert.equal(freeMailProvider(" Outlook.com "), "Microsoft");
+assert.equal(freeMailProvider("mi-papeleria.com.mx"), null);
+assert.equal(freeMailProvider(null), null);
+const gm = emailAdvice({ spf: "v=spf1 -all", dmarc: "v=DMARC1; p=none", dmarc_policy: "none" }, "gmail.com");
+assert.ok(!gm.todo.includes("administra tu dominio") && gm.todo.includes("2 pasos"));
+assert.equal(gm.who, "Google");
+const own = emailAdvice({ spf: "v=spf1 -all", dmarc: "v=DMARC1; p=none", dmarc_policy: "none" }, "mi-papeleria.com.mx");
+assert.ok(own.todo.includes("administra tu dominio"));
+const gmViews = buildActionViews(rows, { ...base, hasDomain: true, freeMailProvider: "Google" });
+const gmAction = gmViews.find((x) => x.code === "email_protection")!;
+assert.ok(gmAction.finding.todo.includes("No hay nada que pedir") && !gmAction.finding.todo.includes("administra tu dominio"));
+assert.equal(gmViews.length, 5);
+
+// Persona-test fix 2: plain language first, acronyms only in parentheses / detail.
+for (const f of [
+  { spf: null, dmarc: null, dmarc_policy: null },
+  { spf: "v=spf1 -all", dmarc: null, dmarc_policy: null },
+  { spf: "v=spf1 -all", dmarc: "v=DMARC1; p=none", dmarc_policy: "none" as const },
+]) {
+  const a = emailAdvice(f, "mi-papeleria.com.mx");
+  assert.ok(!/^(SPF|DMARC)/.test(a.happened), "finding must not open with an acronym");
+  assert.ok(a.happened.length > 30);
+}
 
 // Regression: timestamps are shown in Mexico City time, never UTC.
 const shown = formatMx("2026-10-05T02:47:16Z");

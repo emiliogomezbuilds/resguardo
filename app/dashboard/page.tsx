@@ -10,6 +10,7 @@ import {
   type BackupTest,
   type EmailCheck,
 } from "@/lib/resguardo";
+import { freeMailProvider } from "@/lib/dns";
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ export default async function Dashboard({
     backups: (backups ?? []) as BackupTest[],
     responderCount: count ?? 0,
     hasDomain: !!business.domain,
+    freeMailProvider: freeMailProvider(business.domain),
     lastEmailCheck: ((checks ?? [])[0] as EmailCheck | undefined) ?? null,
   });
   const pending = views.filter((v) => !v.done).length;

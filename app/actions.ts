@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { ACTION_CODES, ASSET_PRESETS } from "@/lib/resguardo";
-import { checkEmailProtection, normalizeDomain } from "@/lib/dns";
+import { checkEmailProtection, freeMailProvider, normalizeDomain } from "@/lib/dns";
 import { simulatedTriage, type IncidentKind } from "@/lib/triage";
 import { isoDate, oneOf, text } from "@/lib/validate";
 
@@ -107,6 +107,8 @@ export async function runEmailCheck() {
   if (!business) redirect("/onboarding");
   const domain = business.domain ? normalizeDomain(business.domain) : null;
   if (!domain) redirect("/email-check?error=nodomain");
+  // Free-mail (gmail.com, outlook.com...) is run by the provider: nothing of hers to check.
+  if (freeMailProvider(domain)) redirect("/email-check");
   let finding;
   try {
     finding = await checkEmailProtection(domain);
@@ -130,10 +132,14 @@ export async function addResponder(formData: FormData) {
   const name = text(formData.get("name"), 2, 60);
   const role = text(formData.get("role"), 2, 60);
   const contact = text(formData.get("contact"), 3, 80);
-  if (!name || !role || !contact) redirect("/contacts?error=invalid");
+  // Optional: come back to an open incident (persona test: no contacts = dead end mid-incident).
+  // Only a strict UUID is accepted, so this can never become an open redirect.
+  const rawBack = text(formData.get("return_incident"), 36, 36);
+  const back = rawBack && /^[0-9a-f-]{36}$/i.test(rawBack) ? rawBack : null;
+  if (!name || !role || !contact) redirect(back ? `/incidents/${back}?error=contact` : "/contacts?error=invalid");
   await supabase.from("responders").insert({ business_id: business.id, name, role, contact });
   revalidatePath("/dashboard");
-  redirect("/contacts");
+  redirect(back ? `/incidents/${back}` : "/contacts");
 }
 
 export async function deleteResponder(formData: FormData) {
