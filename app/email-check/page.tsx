@@ -1,6 +1,7 @@
 import { requireOwner } from "@/lib/session";
 import { runEmailCheck } from "@/app/actions";
 import { emailAdvice } from "@/lib/dns";
+import { formatMx } from "@/lib/format";
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,17 +55,8 @@ export default async function EmailCheckPage({
               <div><dt className="inline font-medium">Responsable: </dt><dd className="inline">Quien administra tu dominio (anótalo en Contactos)</dd></div>
             </dl>
             <p className="text-xs text-muted-foreground">
-              Consulta hecha el{" "}
-              {new Date(last.checked_at).toLocaleString("es-MX", {
-                timeZone: "America/Mexico_City",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}{" "}
-              (hora de Ciudad de México). Esto reduce suplantaciones, no las elimina, y no revisa
-              tus cuentas ni tus equipos.
+              Consulta hecha el {formatMx(last.checked_at)} (hora de Ciudad de México). Esto reduce
+              suplantaciones, no las elimina, y no revisa tus cuentas ni tus equipos.
             </p>
           </CardContent>
         </Card>

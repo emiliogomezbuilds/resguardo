@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireOwner } from "@/lib/session";
 import { closeIncident, raiseSeverity } from "@/app/actions";
 import { KIND_LABEL, simulatedTriage, type IncidentKind } from "@/lib/triage";
+import { formatMx } from "@/lib/format";
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ export default async function IncidentPage({
   const high = inc.severity === "high";
 
   return (
-    <Shell title={KIND_LABEL[inc.kind as IncidentKind]} subtitle={`Abierto el ${new Date(inc.created_at).toLocaleString("es-MX")}`}>
+    <Shell title={KIND_LABEL[inc.kind as IncidentKind]} subtitle={`Abierto el ${formatMx(inc.created_at)} (hora de Ciudad de México)`}>
       <div className="mb-4 flex items-center gap-2">
         <Badge variant={high ? "destructive" : "warning"}>Gravedad {inc.severity === "high" ? "alta" : inc.severity === "medium" ? "media" : "baja"}</Badge>
         <Badge variant={closed ? "success" : "outline"}>
@@ -72,8 +73,8 @@ export default async function IncidentPage({
 
       {closed ? (
         <p className="rounded-md bg-green-50 p-3 text-sm text-green-900">
-          Cerrado el {new Date(inc.closed_at!).toLocaleString("es-MX")}. Nota: {inc.close_note}
-          {inc.confirmed_by ? ` · Confirmado por: ${inc.confirmed_by}` : ""}. Cerrar un caso no significa que tu negocio esté seguro.
+          Cerrado el {formatMx(inc.closed_at!)} (hora de Ciudad de México) · Nota: {inc.close_note}
+          {inc.confirmed_by ? ` · Confirmado por: ${inc.confirmed_by}` : ""} · Cerrar un caso no significa que tu negocio esté seguro.
         </p>
       ) : (
         <Card>

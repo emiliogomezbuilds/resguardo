@@ -7,6 +7,7 @@ import {
 } from "../lib/resguardo";
 import { simulatedTriage } from "../lib/triage";
 import { isoDate, todayMx } from "../lib/validate";
+import { formatMx } from "../lib/format";
 import { normalizeDomain, checkEmailProtection, emailAdvice } from "../lib/dns";
 
 const NOW = new Date("2026-10-04T12:00:00");
@@ -75,6 +76,11 @@ assert.equal(isoDate("2026-10-04", EVENING_MX), "2026-10-04");
 assert.equal(isoDate("2026-10-05", EVENING_MX), null, "tomorrow (owner's local date) must be rejected");
 assert.equal(isoDate("2026-02-31", EVENING_MX), null, "impossible calendar date must be rejected");
 assert.equal(isoDate("nope", EVENING_MX), null);
+
+// Regression: timestamps are shown in Mexico City time, never UTC.
+const shown = formatMx("2026-10-05T02:47:16Z");
+assert.ok(shown.includes("4") && shown.toLowerCase().includes("octubre"), shown);
+assert.ok(!shown.endsWith("."), "no trailing period that would double up with sentence punctuation");
 
 async function live() {
 // Real DNS-over-HTTPS signal (best effort: skipped if the network is blocked).
