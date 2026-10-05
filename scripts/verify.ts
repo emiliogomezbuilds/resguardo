@@ -6,7 +6,7 @@ import {
   type ActionRow, type Asset,
 } from "../lib/resguardo";
 import { simulatedTriage } from "../lib/triage";
-import { normalizeDomain, checkEmailProtection } from "../lib/dns";
+import { normalizeDomain, checkEmailProtection, emailAdvice } from "../lib/dns";
 
 const NOW = new Date("2026-10-04T12:00:00");
 const rows: ActionRow[] = ACTION_CODES.map((code, i) => ({
@@ -59,6 +59,13 @@ assert.equal(simulatedTriage("phishing").severity, "low");
 assert.equal(normalizeDomain("https://Google.com/path"), "google.com");
 assert.equal(normalizeDomain("not a domain"), null);
 assert.equal(normalizeDomain("a'; drop table"), null);
+
+// Regression for the bug found in the live test: advice must match what was actually found.
+assert.ok(!emailAdvice({ spf: "v=spf1 -all", dmarc: "v=DMARC1; p=none", dmarc_policy: "none" }).todo.includes("publique SPF"));
+assert.ok(emailAdvice({ spf: null, dmarc: null, dmarc_policy: null }).todo.includes("SPF y DMARC"));
+assert.ok(emailAdvice({ spf: "v=spf1 -all", dmarc: null, dmarc_policy: null }).todo.includes("DMARC"));
+assert.ok(!emailAdvice({ spf: "v=spf1 -all", dmarc: null, dmarc_policy: null }).todo.includes("SPF y"));
+assert.ok(!emailAdvice({ spf: "v=spf1 -all", dmarc: "v=DMARC1; p=reject", dmarc_policy: "reject" }).todo.includes("suba"));
 
 async function live() {
 // Real DNS-over-HTTPS signal (best effort: skipped if the network is blocked).

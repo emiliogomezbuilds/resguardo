@@ -1,5 +1,6 @@
 import { requireOwner } from "@/lib/session";
 import { runEmailCheck } from "@/app/actions";
+import { emailAdvice } from "@/lib/dns";
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ export default async function EmailCheckPage({
     .order("checked_at", { ascending: false })
     .limit(1);
   const last = data?.[0];
+  const advice = last ? emailAdvice(last) : null;
 
   return (
     <Shell title="Protección de tu correo de negocio" subtitle="Revisión real y pública. No pide contraseñas.">
@@ -34,7 +36,7 @@ export default async function EmailCheckPage({
           <Button type="submit">Revisar {business.domain}</Button>
         </form>
       )}
-      {last && (
+      {last && advice && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Resultado para {last.domain}</CardTitle>
@@ -47,22 +49,22 @@ export default async function EmailCheckPage({
               </Badge>
             </div>
             <dl className="grid gap-1 rounded-md bg-muted p-3">
-              <div><dt className="inline font-medium">Qué pasó: </dt><dd className="inline">
-                {!last.spf && !last.dmarc
-                  ? "Tu dominio no publica reglas contra suplantación."
-                  : last.dmarc_policy === "none"
-                    ? "DMARC solo observa, no bloquea correos falsos."
-                    : "Hay reglas publicadas contra suplantación."}
-              </dd></div>
-              <div><dt className="inline font-medium">Qué hacer: </dt><dd className="inline">
-                Pide a quien administra tu dominio que publique SPF y DMARC y suba DMARC a
-                quarantine o reject.
-              </dd></div>
+              <div><dt className="inline font-medium">Qué pasó: </dt><dd className="inline">{advice.happened}</dd></div>
+              <div><dt className="inline font-medium">Qué hacer: </dt><dd className="inline">{advice.todo}</dd></div>
               <div><dt className="inline font-medium">Responsable: </dt><dd className="inline">Quien administra tu dominio (anótalo en Contactos)</dd></div>
             </dl>
             <p className="text-xs text-muted-foreground">
-              Consulta hecha el {new Date(last.checked_at).toLocaleString("es-MX")}. Esto reduce
-              suplantaciones, no las elimina, y no revisa tus cuentas ni tus equipos.
+              Consulta hecha el{" "}
+              {new Date(last.checked_at).toLocaleString("es-MX", {
+                timeZone: "America/Mexico_City",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}{" "}
+              (hora de Ciudad de México). Esto reduce suplantaciones, no las elimina, y no revisa
+              tus cuentas ni tus equipos.
             </p>
           </CardContent>
         </Card>

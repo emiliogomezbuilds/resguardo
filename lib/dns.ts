@@ -30,6 +30,43 @@ export type EmailFinding = {
   dmarc_policy: "none" | "quarantine" | "reject" | null;
 };
 
+// Plain-language finding (happened / todo) derived ONLY from what the lookup found.
+// Bug found in the live mechanical test: the "todo" text used to ask for SPF and DMARC
+// even when SPF was already published, which would confuse a non-technical owner.
+export function emailAdvice(f: Pick<EmailFinding, "spf" | "dmarc" | "dmarc_policy">): {
+  happened: string;
+  todo: string;
+} {
+  if (!f.spf && !f.dmarc) {
+    return {
+      happened: "Tu dominio no publica reglas contra suplantación.",
+      todo: "Pide a quien administra tu dominio que publique SPF y DMARC.",
+    };
+  }
+  if (!f.spf) {
+    return {
+      happened: "Falta SPF: cualquiera podría enviar correos que parecen tuyos.",
+      todo: "Pide a quien administra tu dominio que publique SPF.",
+    };
+  }
+  if (!f.dmarc) {
+    return {
+      happened: "SPF está publicado, pero falta DMARC.",
+      todo: "Pide a quien administra tu dominio que publique DMARC.",
+    };
+  }
+  if (f.dmarc_policy === "none") {
+    return {
+      happened: "DMARC solo observa, no bloquea correos falsos.",
+      todo: "Pide a quien administra tu dominio que suba DMARC a quarantine o reject.",
+    };
+  }
+  return {
+    happened: "Hay reglas publicadas contra suplantación (SPF y DMARC).",
+    todo: "No hay nada nuevo que pedir hoy. Vuelve a revisar en unos meses.",
+  };
+}
+
 export async function checkEmailProtection(domain: string): Promise<EmailFinding> {
   const [root, dm] = await Promise.all([txt(domain), txt(`_dmarc.${domain}`)]);
   const spf = root.find((r) => r.toLowerCase().startsWith("v=spf1")) ?? null;
