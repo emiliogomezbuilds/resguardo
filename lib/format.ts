@@ -8,6 +8,6 @@ export function formatMx(iso: string | Date): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    hour12: true,
+    hourCycle: "h23", // 24h clock: "20:47". "p.m." ends in a period and doubled up with the sentence.
   });
 }
