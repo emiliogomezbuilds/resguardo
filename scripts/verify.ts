@@ -6,6 +6,7 @@ import {
   type ActionRow, type Asset,
 } from "../lib/resguardo";
 import { simulatedTriage } from "../lib/triage";
+import { isoDate, todayMx } from "../lib/validate";
 import { normalizeDomain, checkEmailProtection, emailAdvice } from "../lib/dns";
 
 const NOW = new Date("2026-10-04T12:00:00");
@@ -66,6 +67,14 @@ assert.ok(emailAdvice({ spf: null, dmarc: null, dmarc_policy: null }).todo.inclu
 assert.ok(emailAdvice({ spf: "v=spf1 -all", dmarc: null, dmarc_policy: null }).todo.includes("DMARC"));
 assert.ok(!emailAdvice({ spf: "v=spf1 -all", dmarc: null, dmarc_policy: null }).todo.includes("SPF y"));
 assert.ok(!emailAdvice({ spf: "v=spf1 -all", dmarc: "v=DMARC1; p=reject", dmarc_policy: "reject" }).todo.includes("suba"));
+
+// Regression: at 8:41 pm on Oct 4 in Mexico City the server clock (UTC) is already Oct 5.
+const EVENING_MX = new Date("2026-10-05T02:41:00Z");
+assert.equal(todayMx(EVENING_MX), "2026-10-04");
+assert.equal(isoDate("2026-10-04", EVENING_MX), "2026-10-04");
+assert.equal(isoDate("2026-10-05", EVENING_MX), null, "tomorrow (owner's local date) must be rejected");
+assert.equal(isoDate("2026-02-31", EVENING_MX), null, "impossible calendar date must be rejected");
+assert.equal(isoDate("nope", EVENING_MX), null);
 
 async function live() {
 // Real DNS-over-HTTPS signal (best effort: skipped if the network is blocked).

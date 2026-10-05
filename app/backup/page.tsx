@@ -1,6 +1,7 @@
 import { requireOwner } from "@/lib/session";
 import { recordBackup } from "@/app/actions";
 import { BACKUP_STALE_DAYS, backupState, type BackupTest } from "@/lib/resguardo";
+import { todayMx } from "@/lib/validate";
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ export default async function BackupPage({
     .order("tested_on", { ascending: false });
   const tests = (data ?? []) as BackupTest[];
   const state = backupState(tests);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayMx();
 
   return (
     <Shell title="Prueba de respaldo" subtitle="Un respaldo solo cuenta si alguien lo restauró.">
